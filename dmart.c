@@ -1,30 +1,8 @@
-/* dmart.c - D-Mart style retail billing & inventory system
- *
- * Features:
- *  - Two roles: Store Person (admin) and Billing Person (cashier)
- *  - Inventory in products.txt (CSV)
- *  - Billing: add items, remove items, steady receipt shown after every change
- *  - Bill saved to bills/bill_YYYYMMDD_HHMMSS.txt and appended to receipts.txt
- *  - Admin: add/update/delete products, search, import sample products
- *  - Reports: total income, daily income, monthly income, product-wise, top-selling
- *  - Low stock alerts for admin (stock < 5)
- *
- * Format (products.txt):
- *   code,name,price,stock,discount,category,subcategory
- *
- * Format (receipts.txt) (one line per item):
- *   receiptId,customerName,date-time,prodCode,prodName,qty,unitPrice,subtotal
- *
- * Compile:
- *   gcc -o dmart dmart.c
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
-
 
 #ifdef _WIN32
   #include <windows.h>
@@ -57,6 +35,15 @@ typedef struct {
     double total;
 } CartItem;
 
+/* ---------- Customer Management Data Structures ---------- */
+typedef struct {
+    int id;
+    char name[50];
+    char phone[15];
+    char email[50];
+    char address[100];
+} Customer;
+
 /* ---------- Prototypes ---------- */
 /* general */
 void clear_console();
@@ -67,7 +54,6 @@ void strtolower(char *s);
 int load_products(Product products[], int maxProducts);
 int save_products(Product products[], int count);
 Product* find_product_by_code(Product products[], int count, int code);
-void import_sample_products();
 
 /* admin */
 void admin_menu();
@@ -100,6 +86,7 @@ void ensure_bills_dir();
 
 /* simple console helpers */
 void pause_console();
+void view_customers();
 
 /* ---------- Implementation ---------- */
 
@@ -131,13 +118,10 @@ int load_products(Product products[], int maxProducts) {
         trimnewline(line);
         if (strlen(line) == 0) continue;
         Product p;
-        // Defensive init
         memset(&p, 0, sizeof(p));
         p.price = 0.0;
         p.stock = 0;
         p.discount = 0.0;
-        // Parse CSV: code,name,price,stock,discount,category,subcategory
-        // Some names may contain commas - assume consistent formatting without embedded commas for simplicity
         int fields = sscanf(line, "%d,%127[^,],%lf,%d,%lf,%63[^,],%63[^\n]",
                &p.code, p.name, &p.price, &p.stock, &p.discount, p.category, p.subcategory);
         if (fields >= 5) {
@@ -147,7 +131,6 @@ int load_products(Product products[], int maxProducts) {
             }
             products[count++] = p;
         } else {
-            // Try fallback: fewer fields
             char *tok;
             char tmp[MAX_LINE];
             strncpy(tmp, line, sizeof(tmp)-1); tmp[sizeof(tmp)-1] = '\0';
@@ -184,48 +167,6 @@ Product* find_product_by_code(Product products[], int count, int code) {
     return NULL;
 }
 
-void import_sample_products() {
-    // Append sample 30 items (grocery, dairy, stationery, daily use)
-    FILE *fp = fopen(PRODUCTS_FILE, "a");
-    if (!fp) { printf("Cannot open %s for appending.\n", PRODUCTS_FILE); return; }
-    const char *samples[] = {
-        "101,Rice 1kg,60.00,50,5.0,Grocery,Staples",
-        "102,Wheat Flour 5kg,220.00,40,10.0,Grocery,Staples",
-        "103,Toor Dal 1kg,150.00,35,5.0,Grocery,Pulses",
-        "104,Chana Dal 1kg,120.00,30,5.0,Grocery,Pulses",
-        "105,Sugar 1kg,45.00,60,0.0,Grocery,Essentials",
-        "106,Table Salt 1kg,20.00,80,0.0,Grocery,Essentials",
-        "107,Cooking Oil 1L,160.00,50,10.0,Grocery,Essentials",
-        "108,Tea Powder 250g,110.00,40,5.0,Grocery,Beverages",
-        "109,Coffee Powder 200g,180.00,30,8.0,Grocery,Beverages",
-        "110,Red Chilli Powder 200g,95.00,25,5.0,Grocery,Spices",
-        "111,Milk 1L,50.00,100,0.0,Dairy,Milk",
-        "112,Curd 500g,35.00,80,0.0,Dairy,Milk Products",
-        "113,Butter 200g,95.00,40,5.0,Dairy,Milk Products",
-        "114,Cheese 200g,120.00,35,8.0,Dairy,Milk Products",
-        "115,Ghee 500ml,350.00,20,10.0,Dairy,Milk Products",
-        "116,Ice Cream Cup 100ml,25.00,60,0.0,Dairy,Frozen",
-        "117,Soft Drink 500ml,40.00,50,0.0,Dairy,Beverages",
-        "118,Fruit Juice 1L,85.00,40,5.0,Dairy,Beverages",
-        "119,Notebook 200 pages,55.00,70,5.0,Stationery,Writing",
-        "120,Pen Blue,10.00,200,0.0,Stationery,Writing",
-        "121,Pencil HB,5.00,150,0.0,Stationery,Writing",
-        "122,Eraser,3.00,100,0.0,Stationery,Utility",
-        "123,Sharpener,5.00,90,0.0,Stationery,Utility",
-        "124,Scale 15cm,15.00,80,0.0,Stationery,Utility",
-        "125,Marker Black,25.00,60,5.0,Stationery,Writing",
-        "126,Glue Bottle 100ml,30.00,50,0.0,Stationery,Utility",
-        "127,Soap Bar 100g,28.00,120,5.0,Daily Use,Personal Care",
-        "128,Shampoo Bottle 200ml,120.00,60,10.0,Daily Use,Personal Care",
-        "129,Toothpaste 150g,65.00,70,5.0,Daily Use,Personal Care",
-        "130,Detergent Powder 1kg,95.00,80,8.0,Daily Use,Cleaning"
-    };
-    int n = sizeof(samples)/sizeof(samples[0]);
-    for (int i = 0; i < n; ++i) fprintf(fp, "%s\n", samples[i]);
-    fclose(fp);
-    printf("Sample products appended to %s\n", PRODUCTS_FILE);
-}
-
 /* ---------- Admin functions ---------- */
 
 void admin_menu() {
@@ -237,8 +178,7 @@ void admin_menu() {
         printf("4. Update Product\n");
         printf("5. Delete Product\n");
         printf("6. Low-stock Alerts (stock < 5)\n");
-        printf("7. Import Sample Products (append)\n");
-        printf("8. Reports Menu\n");
+        printf("7. Reports Menu\n");
         printf("0. Back to Role Selection\n");
         printf("Enter choice: ");
         int ch;
@@ -252,8 +192,7 @@ void admin_menu() {
             case 4: admin_update_product(); break;
             case 5: admin_delete_product(); break;
             case 6: admin_low_stock_alerts(); break;
-            case 7: import_sample_products(); break;
-            case 8: report_menu(); break;
+            case 7: report_menu(); break;
             default: printf("Invalid choice.\n");
         }
     }
@@ -291,6 +230,15 @@ void admin_view_products() {
                products[i].discount, products[i].category, products[i].subcategory);
     }
     printf("Total products: %d\n", n);
+    printf("+------+---------------------------+---------+-------+--------+-------------------+-------------------+\n");
+    printf("| Code | Name                      | Price   | Stock | Disc%%  | Category          | Subcategory        |\n");
+    printf("+------+---------------------------+---------+-------+--------+-------------------+-------------------+\n");
+    for (int i = 0; i < n; ++i) {
+        printf("| %-4d | %-25s | %7.2f | %5d | %5.1f | %-17s | %-17s |\n",
+               products[i].code, products[i].name, products[i].price, products[i].stock,
+               products[i].discount, products[i].category, products[i].subcategory);
+    }
+    printf("+------+---------------------------+---------+-------+--------+-------------------+-------------------+\n");
 }
 
 void admin_view_by_category() {
@@ -302,18 +250,20 @@ void admin_view_by_category() {
     printf("Enter subcategory (or 'all'): ");
     char sub[64]; fgets(sub, sizeof(sub), stdin); trimnewline(sub);
     int cnt = 0;
-    printf("\nCode | Name | Price | Stock | Disc | Cat/Sub\n");
-    printf("-----------------------------------------------------------\n");
+    printf("+------+---------------------------+---------+-------+--------+-------------------+-------------------+\n");
+    printf("| Code | Name                      | Price   | Stock | Disc%%  | Category          | Subcategory        |\n");
+    printf("+------+---------------------------+---------+-------+--------+-------------------+-------------------+\n");
     for (int i = 0; i < n; ++i) {
         int mc = (strcmp(cat, "all")==0 || strlen(cat)==0) ? 1 : (strcmp(products[i].category, cat)==0);
         int ms = (strcmp(sub, "all")==0 || strlen(sub)==0) ? 1 : (strcmp(products[i].subcategory, sub)==0);
         if (mc && ms) {
-            printf("%4d | % -20s | %7.2f | %3d | %4.1f%% | %s/%s\n",
+            printf("| %-4d | %-25s | %7.2f | %5d | %5.1f | %-17s | %-17s |\n",
                    products[i].code, products[i].name, products[i].price, products[i].stock,
                    products[i].discount, products[i].category, products[i].subcategory);
             cnt++;
         }
     }
+    printf("+------+---------------------------+---------+-------+--------+-------------------+-------------------+\n");
     if (cnt == 0) printf("No matching products.\n");
 }
 
@@ -368,7 +318,6 @@ void admin_low_stock_alerts() {
 /* ---------- Billing functions (cashier) ---------- */
 
 void ensure_bills_dir() {
-    // try to create bills directory if not exists
 #ifdef _WIN32
     CreateDirectoryA(BILLS_DIR, NULL);
 #else
@@ -417,7 +366,6 @@ void append_sales_items(CartItem cart[], int cartCount, const char *iso) {
 }
 
 void billing_print_steady(CartItem cart[], int cartCount, const char *customerName) {
-    // Print steady receipt block (we will show after the menu)
     time_t t = time(NULL);
     struct tm *lt = localtime(&t);
     char iso[32]; strftime(iso, sizeof(iso), "%Y-%m-%d %H:%M:%S", lt);
@@ -435,7 +383,7 @@ void billing_print_steady(CartItem cart[], int cartCount, const char *customerNa
         subtotal += cart[i].total;
     }
     printf("--------------------------------------------------------\n");
-    double discount = 0.0; // no global discount by default; could be extended
+    double discount = 0.0;
     double net = subtotal - discount;
     printf("%52s %10.2f\n", "Subtotal:", subtotal);
     printf("%52s %10.2f\n", "Discount:", discount);
@@ -448,13 +396,11 @@ void billing_finalize_and_save(CartItem cart[], int cartCount, const char *custo
     time_t t = time(NULL);
     struct tm *lt = localtime(&t);
     char iso[32]; strftime(iso, sizeof(iso), "%Y-%m-%d %H:%M:%S", lt);
-    // compute subtotal
     double subtotal = 0.0;
     for (int i = 0; i < cartCount; ++i) subtotal += cart[i].total;
     double discount = 0.0;
     double net = subtotal - discount;
 
-    // print final bill (nice)
     ensure_bills_dir();
     char filename[256];
     strftime(filename, sizeof(filename), BILLS_DIR "/bill_%Y%m%d_%H%M%S.txt", lt);
@@ -483,12 +429,9 @@ void billing_finalize_and_save(CartItem cart[], int cartCount, const char *custo
         printf("Bill saved to: %s\n", filename);
     }
 
-    // Append itemized receipt entries into receipts.txt (one line per item)
     append_receipt_items(cart, cartCount, customerName, iso);
-    // Append sales_items for top-selling reports
     append_sales_items(cart, cartCount, iso);
 
-    // Reduce stock in products file
     Product products[MAX_PRODUCTS]; int n = load_products(products, MAX_PRODUCTS);
     for (int i = 0; i < cartCount; ++i) {
         Product *p = find_product_by_code(products, n, cart[i].code);
@@ -502,12 +445,11 @@ void billing_finalize_and_save(CartItem cart[], int cartCount, const char *custo
     printf("Checkout complete. Net Total = %.2f\n", net);
 }
 
-/* Billing interactive flow (cashier) */
 void billing_menu() {
     Product products[MAX_PRODUCTS];
     int prodCount = load_products(products, MAX_PRODUCTS);
     if (prodCount == 0) {
-        printf("No products available. Ask admin to import products first.\n");
+        printf("No products available. Ask admin to add products first.\n");
         return;
     }
 
@@ -537,7 +479,6 @@ void billing_menu() {
             return;
         }
         else if (ch == 1) {
-            // show products
             prodCount = load_products(products, MAX_PRODUCTS);
             printf("\nCode | Name | Price | Stock | Disc\n");
             printf("-------------------------------------------\n");
@@ -571,7 +512,6 @@ void billing_menu() {
             pause_console();
         }
         else if (ch == 3) {
-            // Add item to cart
             int code, qty;
             printf("Enter product code to add: ");
             if (scanf("%d", &code) != 1) { while(getchar()!='\n'); printf("Invalid.\n"); continue;}
@@ -582,10 +522,8 @@ void billing_menu() {
             if (!p) { printf("Product not found.\n"); continue; }
             if (qty <= 0) { printf("Quantity must be positive.\n"); continue; }
             if (p->stock < qty) { printf("Insufficient stock (available %d).\n", p->stock); continue; }
-            // compute price after discount
             double priceAfter = p->price * (100.0 - p->discount) / 100.0;
             double subtotal = priceAfter * qty;
-            // if product already in cart, increase qty
             int foundIdx = -1;
             for (int i = 0; i < cartCount; ++i) if (cart[i].code == code) { foundIdx = i; break; }
             if (foundIdx >= 0) {
@@ -604,7 +542,6 @@ void billing_menu() {
                     printf("Cart full.\n");
                 }
             }
-            // print steady receipt immediately
             billing_print_steady(cart, cartCount, customerName);
         }
         else if (ch == 4) {
@@ -625,7 +562,6 @@ void billing_menu() {
         }
         else if (ch == 6) {
             billing_finalize_and_save(cart, cartCount, customerName);
-            // clear cart after finalize
             cartCount = 0;
             pause_console();
             return;
@@ -670,7 +606,6 @@ void report_total_income() {
     while (fgets(line, sizeof(line), fp)) {
         trimnewline(line);
         if (strlen(line)==0) continue;
-        // format: rid,customer,iso,code,name,qty,unit,subtotal
         int rid, code, qty; char cust[128], iso[64], name[128]; double unit, subtotal;
         if (sscanf(line, "%d,%127[^,],%63[^,],%d,%127[^,],%d,%lf,%lf",
                    &rid, cust, iso, &code, name, &qty, &unit, &subtotal) == 8) {
@@ -742,7 +677,7 @@ void report_product_wise() {
 int compare_top(const void *a, const void *b) {
     const long *A = a;
     const long *B = b;
-    if (A[2] != B[2]) return (B[2] - A[2]) > 0 ? 1 : -1; // qty desc
+    if (A[2] != B[2]) return (B[2] - A[2]) > 0 ? 1 : -1;
     if (A[3] > B[3]) return -1;
     if (A[3] < B[3]) return 1;
     return 0;
@@ -751,7 +686,6 @@ int compare_top(const void *a, const void *b) {
 void report_top_selling() {
     FILE *fp = fopen(SALES_ITEMS_FILE, "r");
     if (!fp) { printf("No sales items.\n"); return; }
-    // We'll aggregate in dynamic arrays: code, qty, revenue, name (store pointer indexes)
     typedef struct { int code; char name[128]; long qty; double revenue; } Agg;
     Agg agg[1000]; int aggc = 0;
     char line[MAX_LINE];
@@ -771,9 +705,6 @@ void report_top_selling() {
     }
     fclose(fp);
     if (aggc == 0) { printf("No items sold yet.\n"); return; }
-    // Sort by qty desc, revenue desc
-    // For convenience convert to array of long/double and use qsort with custom comparator via wrapper
-    // We'll use simple bubble sort (agg small)
     for (int i=0;i<aggc-1;++i) for (int j=i+1;j<aggc;++j) {
         if (agg[j].qty > agg[i].qty || (agg[j].qty == agg[i].qty && agg[j].revenue > agg[i].revenue)) {
             Agg tmp = agg[i]; agg[i] = agg[j]; agg[j] = tmp;
@@ -788,13 +719,167 @@ void report_top_selling() {
     }
 }
 
-/* ---------- Small helpers ---------- */
-void pause_console() {
-    printf("\nPress Enter to continue..."); fflush(stdout);
-    while (getchar() != '\n');
+/* ---------- Customer Management Prototypes ---------- */
+void customer_menu();
+void register_customer();
+void update_customer();
+void search_customer();
+void fetch_receipt_history();
+
+/* ---------- Customer Management Implementation ---------- */
+int next_customer_id() {
+    FILE *fp = fopen("customers.txt", "r");
+    int id = 1, last = 0;
+    if (fp) {
+        while (fscanf(fp, "%d,%*[^,],%*[^,],%*[^,],%*[^,\n]\n", &id) == 1)
+            last = id;
+        fclose(fp);
+    }
+    return last + 1;
 }
 
-/* ---------- main and role selection ---------- */
+void register_customer() {
+    FILE *fp = fopen("customers.txt", "a");
+    if (!fp) { printf("Could not open customers.txt\n"); return; }
+    Customer c;
+    c.id = next_customer_id();
+    printf("Enter Name: "); fgets(c.name, sizeof(c.name), stdin); trimnewline(c.name);
+    printf("Enter Phone: "); fgets(c.phone, sizeof(c.phone), stdin); trimnewline(c.phone);
+    printf("Enter Email: "); fgets(c.email, sizeof(c.email), stdin); trimnewline(c.email);
+    printf("Enter Address: "); fgets(c.address, sizeof(c.address), stdin); trimnewline(c.address);
+    fprintf(fp, "%d,%s,%s,%s,%s\n", c.id, c.name, c.phone, c.email, c.address);
+    fclose(fp);
+    printf("Customer registered.\n");
+}
+
+void update_customer() {
+    char search[50], nameLower[50], custNameLower[50];
+    int found = 0, updateChoice;
+    printf("Enter customer name to update: ");
+    fgets(search, sizeof(search), stdin); trimnewline(search);
+    strncpy(nameLower, search, sizeof(nameLower)); strtolower(nameLower);
+
+    FILE *fp = fopen("customers.txt", "r");
+    FILE *temp = fopen("customers_temp.txt", "w");
+    if (!fp || !temp) { printf("File error.\n"); return; }
+
+    Customer c;
+    while (fscanf(fp, "%d,%49[^,],%14[^,],%49[^,],%99[^\n]\n", &c.id, c.name, c.phone, c.email, c.address) == 5) {
+        strncpy(custNameLower, c.name, sizeof(custNameLower)); strtolower(custNameLower);
+        if (strcmp(nameLower, custNameLower) == 0) {
+            found = 1;
+            printf("What do you want to update?\n");
+            printf("1. Phone\n2. Email\n3. Address\nEnter choice: ");
+            scanf("%d", &updateChoice); while(getchar()!='\n');
+            switch (updateChoice) {
+                case 1:
+                    printf("Enter new phone: "); fgets(c.phone, sizeof(c.phone), stdin); trimnewline(c.phone); break;
+                case 2:
+                    printf("Enter new email: "); fgets(c.email, sizeof(c.email), stdin); trimnewline(c.email); break;
+                case 3:
+                    printf("Enter new address: "); fgets(c.address, sizeof(c.address), stdin); trimnewline(c.address); break;
+                default:
+                    printf("Invalid choice. No update performed.\n");
+            }
+            printf("Customer updated.\n");
+        }
+        fprintf(temp, "%d,%s,%s,%s,%s\n", c.id, c.name, c.phone, c.email, c.address);
+    }
+    fclose(fp); fclose(temp);
+    remove("customers.txt");
+    rename("customers_temp.txt", "customers.txt");
+    if (!found) printf("Customer not found.\n");
+}
+
+void search_customer() {
+    char search[50], nameLower[50], phoneLower[15], custNameLower[50], custPhoneLower[15];
+    int found = 0, searchId = 0, isId = 0;
+    printf("Enter customer name, ID, or phone to search: ");
+    fgets(search, sizeof(search), stdin); trimnewline(search);
+
+    if (sscanf(search, "%d", &searchId) == 1) isId = 1;
+    strncpy(nameLower, search, sizeof(nameLower)-1); nameLower[sizeof(nameLower)-1] = '\0'; strtolower(nameLower);
+    strncpy(phoneLower, search, sizeof(phoneLower)-1); phoneLower[sizeof(phoneLower)-1] = '\0'; strtolower(phoneLower);
+
+    FILE *fp = fopen("customers.txt", "r");
+    if (!fp) { printf("File error.\n"); return; }
+    Customer c;
+    char line[512];
+    printf("Results:\n");
+    printf("+----+----------------------+---------------+---------------------------+--------------------------+\n");
+    printf("| ID | Name                 | Phone         | Email                     | Address                  |\n");
+    printf("+----+----------------------+---------------+---------------------------+--------------------------+\n");
+    while (fgets(line, sizeof(line), fp)) {
+        trimnewline(line);
+        memset(&c, 0, sizeof(c));
+        int fields = sscanf(line, "%d,%49[^,],%14[^,],%49[^,],%99[^\n]", &c.id, c.name, c.phone, c.email, c.address);
+        if (fields < 2) continue;
+        strncpy(custNameLower, c.name, sizeof(custNameLower)-1); custNameLower[sizeof(custNameLower)-1] = '\0'; strtolower(custNameLower);
+        strncpy(custPhoneLower, c.phone, sizeof(custPhoneLower)-1); custPhoneLower[sizeof(custPhoneLower)-1] = '\0'; strtolower(custPhoneLower);
+        if ((isId && c.id == searchId) ||
+            (strlen(nameLower) && strstr(custNameLower, nameLower)) ||
+            (strlen(phoneLower) && strstr(custPhoneLower, phoneLower))) {
+            printf("| %-2d | %-20s | %-13s | %-25s | %-24s |\n", c.id, c.name, c.phone, c.email, c.address);
+            found = 1;
+        }
+    }
+    printf("+----+----------------------+---------------+---------------------------+--------------------------+\n");
+    fclose(fp);
+    if (!found) printf("Customer not found.\n");
+}
+
+void fetch_receipt_history() {
+    char search[50], nameLower[50], receiptNameLower[50];
+    int found = 0, rid, itemId, qty;
+    char cname[50], date[32], itemName[128];
+    double price, itemTotal;
+    printf("Enter customer name to fetch receipt history: ");
+    fgets(search, sizeof(search), stdin); trimnewline(search);
+    strncpy(nameLower, search, sizeof(nameLower)); strtolower(nameLower);
+
+    FILE *fp = fopen(RECEIPTS_FILE, "r");
+    if (!fp) { printf("File error.\n"); return; }
+    printf("Receipts:\n");
+    while (fscanf(fp, "%d,%49[^,],%31[^,],%d,%127[^,],%d,%lf,%lf\n", &rid, cname, date, &itemId, itemName, &qty, &price, &itemTotal) == 8) {
+        strncpy(receiptNameLower, cname, sizeof(receiptNameLower)); strtolower(receiptNameLower);
+        if (strcmp(nameLower, receiptNameLower) == 0) {
+            printf("ReceiptID: %d | Date: %s | Item: %s | Qty: %d | Price: %.2f | Total: %.2f\n",
+                   rid, date, itemName, qty, price, itemTotal);
+            found = 1;
+        }
+    }
+    fclose(fp);
+    if (!found) printf("No receipts found for this customer.\n");
+}
+
+void customer_menu() {
+    int choice;
+    while (1) {
+        printf("\n--- Customer Management ---\n");
+        printf("1. Register Customer\n");
+        printf("2. Update Customer\n");
+        printf("3. Search Customer\n");
+        printf("4. View Customers\n");
+        printf("5. Fetch Receipt History\n");
+        printf("0. Back\nChoice: ");
+        if (scanf("%d", &choice) != 1) { while(getchar()!='\n'); choice = -1; }
+        while(getchar()!='\n');
+        switch (choice) {
+            case 1: register_customer(); break;
+            case 2: update_customer(); break;
+            case 3: search_customer(); break;
+            case 4: view_customers(); break;
+            case 5: fetch_receipt_history(); break;
+            case 0: return;
+            default: printf("Invalid choice!\n");
+        }
+    }
+}
+
+void print_steady_bill_top(CartItem cart[], int cartCount, const char *customerName) {
+    billing_print_steady(cart, cartCount, customerName);
+}
+
 int main(void) {
     ensure_bills_dir();
     while (1) {
@@ -805,6 +890,7 @@ int main(void) {
         printf("Choose role:\n");
         printf("1. Store Person (Admin / Inventory)\n");
         printf("2. Billing Person (Cashier)\n");
+        printf("3. Customer Management\n");
         printf("0. Exit\n");
         printf("Enter choice: ");
         int role;
@@ -813,7 +899,34 @@ int main(void) {
         if (role == 0) { printf("Bye!\n"); break; }
         else if (role == 1) admin_menu();
         else if (role == 2) billing_menu();
+        else if (role == 3) customer_menu();
         else printf("Invalid.\n");
     }
     return 0;
+}
+
+void pause_console() {
+#ifdef _WIN32
+    system("pause");
+#else
+    printf("Press Enter to continue...");
+    getchar();
+#endif
+}
+
+void view_customers() {
+    FILE *fp = fopen("customers.txt", "r");
+    if (!fp) { printf("No customers found.\n"); return; }
+    Customer c;
+    int found = 0;
+    printf("+----+----------------------+---------------+---------------------------+--------------------------+\n");
+    printf("| ID | Name                 | Phone         | Email                     | Address                  |\n");
+    printf("+----+----------------------+---------------+---------------------------+--------------------------+\n");
+    while (fscanf(fp, "%d,%49[^,],%14[^,],%49[^,],%99[^\n]\n", &c.id, c.name, c.phone, c.email, c.address) == 5) {
+        printf("| %-2d | %-20s | %-13s | %-25s | %-24s |\n", c.id, c.name, c.phone, c.email, c.address);
+        found = 1;
+    }
+    printf("+----+----------------------+---------------+---------------------------+--------------------------+\n");
+    fclose(fp);
+    if (!found) printf("No customers found.\n");
 }
