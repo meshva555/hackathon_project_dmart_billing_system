@@ -1,0 +1,42 @@
+41,Fortune Basmati Rice 5kg,699.00,50,6.00,Grocery,Food
+42,Tata Tea Premium 1kg,549.00,50,8.00,Grocery,Food
+43,Amul Butter 500g,299.00,50,5.00,Grocery,Dairy
+44,Amul Milk 1L,65.00,50,5.00,Grocery,Dairy
+45,Nescafe Coffee 200g,549.00,50,10.00,Grocery,Beverage
+46,Coca Cola 2L,99.00,50,12.00,Grocery,Beverage
+47,Lays Chips 100g,40.00,50,15.00,Grocery,Snacks
+48,Kurkure 100g,30.00,50,15.00,Grocery,Snacks
+49,Dettol Handwash 250ml,99.00,50,10.00,Health,Hygiene
+50,Colgate Toothpaste 200g,120.00,50,8.00,Health,Hygiene
+51,tea 150g,70.00,50,0.00,Grocery,Beverage
+131,chocolate,2.00,10,0.00,Dairy,Frozen
+101,Rice 1kg,60.00,50,5.00,Grocery,Staples
+102,Wheat Flour 5kg,220.00,40,10.00,Grocery,Staples
+103,Toor Dal 1kg,150.00,35,5.00,Grocery,Pulses
+104,Chana Dal 1kg,120.00,30,5.00,Grocery,Pulses
+105,Sugar 1kg,45.00,60,0.00,Grocery,Essentials
+106,Table Salt 1kg,20.00,80,0.00,Grocery,Essentials
+107,Cooking Oil 1L,160.00,50,10.00,Grocery,Essentials
+108,Tea Powder 250g,110.00,40,5.00,Grocery,Beverages
+109,Coffee Powder 200g,180.00,30,8.00,Grocery,Beverages
+110,Red Chilli Powder 200g,95.00,25,5.00,Grocery,Spices
+111,Milk 1L,50.00,100,0.00,Dairy,Milk
+112,Curd 500g,35.00,80,0.00,Dairy,Milk Products
+113,Butter 200g,95.00,40,5.00,Dairy,Milk Products
+114,Cheese 200g,120.00,35,8.00,Dairy,Milk Products
+115,Ghee 500ml,350.00,20,10.00,Dairy,Milk Products
+116,Ice Cream Cup 100ml,25.00,50,0.00,Dairy,Frozen
+117,Soft Drink 500ml,40.00,50,0.00,Dairy,Beverages
+118,Fruit Juice 1L,85.00,40,5.00,Dairy,Beverages
+119,Notebook 200 pages,55.00,70,5.00,Stationery,Writing
+120,Pen Blue,10.00,200,0.00,Stationery,Writing
+121,Pencil HB,5.00,147,0.00,Stationery,Writing
+122,Eraser,3.00,100,0.00,Stationery,Utility
+123,Sharpener,5.00,90,0.00,Stationery,Utility
+124,Scale 15cm,15.00,80,0.00,Stationery,Utility
+125,Marker Black,25.00,58,5.00,Stationery,Writing
+126,Glue Bottle 100ml,30.00,50,0.00,Stationery,Utility
+127,Soap Bar 100g,28.00,120,5.00,Daily Use,Personal Care
+128,Shampoo Bottle 200ml,120.00,60,10.00,Daily Use,Personal Care
+129,Toothpaste 150g,65.00,70,5.00,Daily Use,Personal Care
+130,Detergent Powder 1kg,95.00,80,8.00,Daily Use,Cleaning
