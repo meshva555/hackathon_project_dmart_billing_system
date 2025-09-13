@@ -1,3 +1,5 @@
+/* https://github.com/meshva555/hackathon_project_dmart_billing_system */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -930,3 +932,4 @@ void view_customers() {
     fclose(fp);
     if (!found) printf("No customers found.\n");
 }
+
